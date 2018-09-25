@@ -1,3 +1,9 @@
 A Python client for sysrev.com
 
 See Demo.ipynb for implementation of client on example project.
+
+To install PySysrev, simply run `pip install PySysrev`
+
+Then inside Python, run the following commands:
+>>> import PySysrev
+>>> df = PySysrev.getAnnotations(3144)
