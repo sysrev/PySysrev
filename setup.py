@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='PySysrev',
-      version='0.4',
+      version='0.5',
       description='Gets annotations from Sysrev API',
       url='https://github.com/sysrev/PySysrev',
       author='nole-lin',
