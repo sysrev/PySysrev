@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='PySysrev',
-      version='0.5',
+      version='0.6',
       description='Gets annotations from Sysrev API',
       url='https://github.com/sysrev/PySysrev',
       author='nole-lin',
@@ -10,5 +10,8 @@ setup(name='PySysrev',
       install_requires=[
           'pandas',
           'requests',
+          'spacy',
+          'plac',
+          'pathlib'
       ],
       zip_safe=False)
