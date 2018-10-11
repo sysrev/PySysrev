@@ -28,7 +28,7 @@ def getAnnotations(project_id):
     df = pandas.DataFrame.from_dict(data)
     return df
 
-def processAnnotations(project_id, label, output_path):
+def processAnnotations(project_id, label):
     response = requests.get('https://sysrev.com/web-api/project-annotations?project-id=' + str(project_id))
     SYSREV_DATA = response.json()
     annotations = [x for x in SYSREV_DATA['result'] if 'start-offset' in x['context'].keys()]
@@ -53,5 +53,4 @@ def processAnnotations(project_id, label, output_path):
     for k in combined_processed_annotations:
         final_json.append([k,{"entities":combined_processed_annotations[k]}])
 
-    with open(output_path, 'w') as fout:
-        json.dump(final_json, fout)
+    return final_json
