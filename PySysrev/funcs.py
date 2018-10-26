@@ -8,7 +8,6 @@ from pathlib import Path
 import spacy
 import io
 import pprint
-import boto3
 import os
 import pickle
 import urllib
