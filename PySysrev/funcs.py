@@ -1,16 +1,7 @@
 from __future__ import unicode_literals, print_function
-import requests
 import pandas
-import json
-import plac
-import random
+import requests
 from pathlib import Path
-import spacy
-import io
-import pprint
-import os
-import pickle
-import urllib
 
 def getAnnotations(project_id):
     url = 'https://sysrev.com/web-api/project-annotations?project-id=' + str(project_id)
