@@ -12,7 +12,7 @@ setup(name='PySysrev',
           'requests',
           'pathlib',
 
-          'cassandra.cluster',
+          # 'cassandra.cluster', TODO this is a req, but pip can't find
           
           'pickle',
           'urllib'
