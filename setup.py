@@ -12,7 +12,7 @@ setup(name='PySysrev',
           'requests',
           'pathlib',
 
-          'cassandra',
+          'cassandra.cluster',
           
           'pickle',
           'urllib'
