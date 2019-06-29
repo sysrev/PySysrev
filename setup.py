@@ -10,11 +10,6 @@ setup(name='PySysrev',
       install_requires=[
           'pandas',
           'requests',
-          'pathlib',
-
-          # 'cassandra.cluster', TODO this is a req, but pip can't find
-          
-          'pickle',
-          'urllib'
+          'pathlib'
       ],
       zip_safe=False)

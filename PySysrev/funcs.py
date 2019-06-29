@@ -7,7 +7,7 @@ def getAnnotations(project_id):
     url = 'https://sysrev.com/web-api/project-annotations?project-id=' + str(project_id)
     response = requests.get(url)
     result = response.json()["result"]
-    
+
     data = {}
     data['selection'] = [x['selection'] for x in result]
     data['annotation'] = [x['annotation'] for x in result]
@@ -39,7 +39,7 @@ def processAnnotations(project_id, label):
                 combined_annotations[text] = []
             combined_annotations[text].append(entities["entities"][0])
         for key in combined_annotations:
-            combined_annotations[key] = list(set(combined_annotations[key]))            
+            combined_annotations[key] = list(set(combined_annotations[key]))
         return combined_annotations
 
     combined_processed_annotations = combine_annotations(processed_annotations)
@@ -48,6 +48,3 @@ def processAnnotations(project_id, label):
         final_json.append([k,{"entities":combined_processed_annotations[k]}])
 
     return final_json
-
-def getModel(model_name):
-    return pickle.loads(urllib.urlopen("https://s3.amazonaws.com/sysrev-model/".format(model_name)).read())
