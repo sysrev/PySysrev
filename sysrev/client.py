@@ -26,7 +26,7 @@ class LabelTransformer:
         else:
             raise ValueError("Invalid label type")
         
-class SysrevClient():
+class Client():
     
     def __init__(self, api_key, base_url="https://www.sysrev.com"):
         self.api_key = api_key

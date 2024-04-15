@@ -1,1 +1,1 @@
-from .funcs import SysrevClient
+from .funcs import Client
