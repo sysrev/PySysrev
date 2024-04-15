@@ -1,1 +1,1 @@
-from .funcs import Client
+from .client import Client

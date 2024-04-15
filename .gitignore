@@ -13,3 +13,10 @@
 .ipynb_checkpoints/
 
 /py3env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+/dist/
+/build/
+/sysrev.egg-info/
