@@ -1,12 +1,12 @@
 from setuptools import setup
 
-setup(name='PySysrev',
-      version='1.2.1',
+setup(name='sysrev',
+      version='1.2.2',
       description='Gets annotations from Sysrev API',
       url='https://github.com/sysrev/PySysrev',
-      author='nole-lin',
-      author_email='nole@insilica.co',
-      packages=['PySysrev'],
+      author='Thomas Luechtefeld',
+      author_email='tom@insilica.co',
+      packages=['sysrev'],
       install_requires=[
           'pandas',
           'requests',

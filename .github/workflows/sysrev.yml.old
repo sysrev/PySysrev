@@ -1,0 +1,23 @@
+name: Biobricks codecov
+
+on: [push, pull_request]
+
+env:
+  BIOBRICKS_TEST_TOKEN: ${{ secrets.BIOBRICKS_TEST_TOKEN }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Test biobricks
+    steps:
+      - uses: actions/checkout@v2  # Updated to use v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+      - name: Install requirements
+        run: pip install -r requirements.txt  # Removed the working-directory override for this step
+      - name: Run tests and collect coverage
+        run: pytest --cov=./ --cov-report=xml
+        working-directory: ./  # Set the working directory only for the test step
+      - name: Upload coverage reports to Codecov with GitHub Action
+        uses: codecov/codecov-action@v3
