@@ -3,17 +3,17 @@ name: Publish Python package to PyPI
 on:
   push:
     branches:
-      - master  # Set this to your default branch
+      - master
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3  # Updated to latest version
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4  # Updated to latest version
         with:
-          python-version: '3.9'  # Use the Python version compatible with your project
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
