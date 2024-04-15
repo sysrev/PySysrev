@@ -1,4 +1,0 @@
-# Sysrev Python Client
-The Sysrev package provides:
-1. `SysrevClient` object for using the sysrev.com API
-2. (soon) a method for synchronizing local sysrev projects with remote sysrev projects.
