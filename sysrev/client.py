@@ -28,7 +28,7 @@ class LabelTransformer:
 
 class Synchronizer:
     
-    def create_sqlite_db():
+    def create_sqlite_db(self):
         pathlib.Path(".sr").mkdir(exist_ok=True)
         conn = sqlite3.connect('.sr/sr.sqlite')
         c = conn.cursor()
@@ -93,7 +93,12 @@ class Synchronizer:
         conn.commit()
         conn.close()
 
+    # TODO - this could be made more efficient by checking sqlite state and updating the sysrev api
     def sync(self, client, project_id):
+        # check that db exists
+        if not pathlib.Path('.sr/sr.sqlite').exists():
+            self.create_sqlite_db()
+            
         project_info = client.get_project_info(project_id)
         
         labels = client.get_labels(project_id)
