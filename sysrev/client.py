@@ -95,7 +95,7 @@ class Synchronizer:
 
     # TODO - this could be made more efficient by checking sqlite state and updating the sysrev api
     def sync(self, client, project_id):
-        # check that db exists
+        
         if not pathlib.Path('.sr/sr.sqlite').exists():
             self.create_sqlite_db()
             
@@ -111,11 +111,13 @@ class Synchronizer:
         article_labels = [a['labels'] for a in articles if a['labels'] is not None]
         article_labels = [lbl for lbls in article_labels for lbl in lbls]
         article_label_df = pd.DataFrame(article_labels)
+        article_label_df['answer'] = article_label_df['answer'].apply(json.dumps)
         
         article_data = [{k: v for k, v in a.items() if k != 'labels'} for a in articles]
         article_data_df = pd.DataFrame(article_data)
+        article_data_df['notes'] = article_data_df['notes'].apply(json.dumps)
         article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
-        
+            
         article_info = []
         for article_id in tqdm.tqdm(article_data_df['article-id'], total=n_articles):
             article_info.append(client.get_article_info(project_id, article_id))
@@ -132,17 +134,26 @@ class Synchronizer:
             {**{k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in item['itemData'].items()}, 
              'article-id': a['article'].get('article-id')} 
             for a in article_info for item in a['article'].get('csl-citation', {}).get('citationItems', [])])
-            
+        csl_citations['issued'] = csl_citations['issued'].apply(json.dumps)
+        csl_citations['author'] = csl_citations['author'].apply(json.dumps)
+        
         # write everything to .sr/sr.sqlite
         conn = sqlite3.connect('.sr/sr.sqlite')
         
+        def write_df(df,name):
+            # replace any - with _ in column names and remove duplicates
+            df.columns = df.columns.str.replace('-', '_')
+            df = df.loc[:,~df.columns.duplicated()]
+            df.to_sql(name, conn, if_exists='replace', index=False) if not df.empty else None
+                
+                
         # Writing data to tables
-        labels_df.to_sql('labels', conn, if_exists='replace', index=False)
-        article_label_df.to_sql('article_label', conn, if_exists='replace', index=False)
-        article_data_df.to_sql('article_data', conn, if_exists='replace', index=False)
-        full_texts.to_sql('full_texts', conn, if_exists='replace', index=False)
-        auto_labels.to_sql('auto_labels', conn, if_exists='replace', index=False)
-        csl_citations.to_sql('csl_citations', conn, if_exists='replace', index=False)
+        write_df(labels_df,'labels')
+        write_df(article_label_df,'article_label')
+        write_df(article_data_df,'article_data')
+        write_df(full_texts,'full_texts')
+        write_df(auto_labels,'auto_labels')
+        write_df(csl_citations,'csl_citations')
         
         conn.close()
 class Client():
