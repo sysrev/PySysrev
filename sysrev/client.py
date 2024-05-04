@@ -26,136 +26,7 @@ class LabelTransformer:
         else:
             raise ValueError("Invalid label type")
 
-class Synchronizer:
-    
-    def create_sqlite_db(self):
-        pathlib.Path(".sr").mkdir(exist_ok=True)
-        conn = sqlite3.connect('.sr/sr.sqlite')
-        c = conn.cursor()
-
-        # Create article_data table first
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS article_data (
-                primary_title TEXT,
-                consensus INTEGER,
-                article_id TEXT PRIMARY KEY,
-                updated_time TEXT,
-                notes TEXT,
-                resolve INTEGER
-            );
-        ''')
-
-        # Create labels table
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS labels (
-                label_id INTEGER PRIMARY KEY,
-                label_id_local TEXT,
-                category TEXT,
-                definition TEXT,
-                name TEXT,
-                consensus INTEGER,
-                question TEXT,
-                project_ordering INTEGER,
-                short_label TEXT,
-                label_id_global TEXT,
-                root_label_id_local TEXT,
-                global_label_id TEXT,
-                project_id INTEGER,
-                enabled INTEGER,
-                value_type TEXT,
-                required INTEGER,
-                owner_project_id INTEGER
-            );
-        ''')
-
-        # Create article_label table with foreign key references to both labels and article_data
-        c.execute('''
-            CREATE TABLE IF NOT EXISTS article_label (
-                article_id TEXT,
-                label_id INTEGER,
-                user_id INTEGER,
-                answer TEXT,
-                inclusion INTEGER,
-                updated_time TEXT,
-                confirm_time TEXT,
-                resolve INTEGER,
-                PRIMARY KEY (article_id, label_id),
-                FOREIGN KEY (label_id) REFERENCES labels (label_id),
-                FOREIGN KEY (article_id) REFERENCES article_data (article_id)
-            );
-        ''')
-
-        # Indexes for improved query performance
-        c.execute('CREATE INDEX IF NOT EXISTS idx_labels_project_id ON labels (project_id);')
-        c.execute('CREATE INDEX IF NOT EXISTS idx_article_label_user_id ON article_label (user_id);')
-
-        # Commit changes and close connection
-        conn.commit()
-        conn.close()
-
-    # TODO - this could be made more efficient by checking sqlite state and updating the sysrev api
-    def sync(self, client, project_id):
         
-        if not pathlib.Path('.sr/sr.sqlite').exists():
-            self.create_sqlite_db()
-            
-        project_info = client.get_project_info(project_id)
-        
-        labels = client.get_labels(project_id)
-        labels_df = pd.DataFrame(labels)
-        labels_df['definition'] = labels_df['definition'].apply(json.dumps)
-        
-        n_articles = project_info['result']['project']['stats']['articles']
-        articles = [resp for resp in tqdm.tqdm(client.fetch_all_articles(project_id), total=n_articles)]
-        
-        article_labels = [a['labels'] for a in articles if a['labels'] is not None]
-        article_labels = [lbl for lbls in article_labels for lbl in lbls]
-        article_label_df = pd.DataFrame(article_labels)
-        article_label_df['answer'] = article_label_df['answer'].apply(json.dumps)
-        
-        article_data = [{k: v for k, v in a.items() if k != 'labels'} for a in articles]
-        article_data_df = pd.DataFrame(article_data)
-        article_data_df['notes'] = article_data_df['notes'].apply(json.dumps)
-        article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
-            
-        article_info = []
-        for article_id in tqdm.tqdm(article_data_df['article-id'], total=n_articles):
-            article_info.append(client.get_article_info(project_id, article_id))
-        
-        full_texts = pd.DataFrame([{**ft} for a in article_info for ft in a['article'].get('full-texts', []) ])
-        full_texts.columns = [col.split('/')[-1] for col in full_texts.columns]
-        
-        auto_labels = pd.DataFrame([
-            {**{'article-id': a['article'].get('article-id'), 'label-id': label_id}, **details} for a in article_info
-            for label_id, details in a['article'].get('auto-labels', {}).items() ])
-        auto_labels['answer'] = auto_labels['answer'].apply(json.dumps)
-        
-        csl_citations = pd.DataFrame([
-            {**{k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in item['itemData'].items()}, 
-             'article-id': a['article'].get('article-id')} 
-            for a in article_info for item in a['article'].get('csl-citation', {}).get('citationItems', [])])
-        csl_citations['issued'] = csl_citations['issued'].apply(json.dumps)
-        csl_citations['author'] = csl_citations['author'].apply(json.dumps)
-        
-        # write everything to .sr/sr.sqlite
-        conn = sqlite3.connect('.sr/sr.sqlite')
-        
-        def write_df(df,name):
-            # replace any - with _ in column names and remove duplicates
-            df.columns = df.columns.str.replace('-', '_')
-            df = df.loc[:,~df.columns.duplicated()]
-            df.to_sql(name, conn, if_exists='replace', index=False) if not df.empty else None
-                
-                
-        # Writing data to tables
-        write_df(labels_df,'labels')
-        write_df(article_label_df,'article_label')
-        write_df(article_data_df,'article_data')
-        write_df(full_texts,'full_texts')
-        write_df(auto_labels,'auto_labels')
-        write_df(csl_citations,'csl_citations')
-        
-        conn.close()
 class Client():
     
     def __init__(self, api_key, base_url="https://www.sysrev.com"):
@@ -239,4 +110,146 @@ class Client():
     def get_article_file(self, project_id, article_id, hash):
         url = f"{self.base_url}/api-json/files/{project_id}/article/{article_id}/download/{hash}"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
+class Synchronizer:
     
+    def create_sqlite_db(self):
+        pathlib.Path(".sr").mkdir(exist_ok=True)
+        conn = sqlite3.connect('.sr/sr.sqlite')
+        c = conn.cursor()
+
+        # Create article_data table first
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS article_data (
+                primary_title TEXT,
+                consensus INTEGER,
+                article_id TEXT PRIMARY KEY,
+                updated_time TEXT,
+                notes TEXT,
+                resolve INTEGER
+            );
+        ''')
+
+        # Create labels table
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS labels (
+                label_id INTEGER PRIMARY KEY,
+                label_id_local TEXT,
+                category TEXT,
+                definition TEXT,
+                name TEXT,
+                consensus INTEGER,
+                question TEXT,
+                project_ordering INTEGER,
+                short_label TEXT,
+                label_id_global TEXT,
+                root_label_id_local TEXT,
+                global_label_id TEXT,
+                project_id INTEGER,
+                enabled INTEGER,
+                value_type TEXT,
+                required INTEGER,
+                owner_project_id INTEGER
+            );
+        ''')
+
+        # Create article_label table with foreign key references to both labels and article_data
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS article_label (
+                article_id TEXT,
+                label_id INTEGER,
+                user_id INTEGER,
+                answer TEXT,
+                inclusion INTEGER,
+                updated_time TEXT,
+                confirm_time TEXT,
+                resolve INTEGER,
+                PRIMARY KEY (article_id, label_id),
+                FOREIGN KEY (label_id) REFERENCES labels (label_id),
+                FOREIGN KEY (article_id) REFERENCES article_data (article_id)
+            );
+        ''')
+
+        # Indexes for improved query performance
+        c.execute('CREATE INDEX IF NOT EXISTS idx_labels_project_id ON labels (project_id);')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_article_label_user_id ON article_label (user_id);')
+
+        # Commit changes and close connection
+        conn.commit()
+        conn.close()
+
+    def write_df(self, df, name, db_path='.sr/sr.sqlite'):
+        """
+        Writes the given DataFrame to a SQLite database.
+        
+        Parameters:
+            df (pandas.DataFrame): The DataFrame to be written to the database.
+            name (str): The name of the table in which the DataFrame should be stored.
+            db_path (str): Path to the SQLite database file.
+        """
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+        
+        try:
+            df.columns = df.columns.str.replace('-', '_')
+            df = df.loc[:, ~df.columns.duplicated()]
+            df.to_sql(name, conn, if_exists='replace', index=False) if not df.empty else None
+        finally:
+            conn.close()
+    
+    def sync_article_info(self, client:Client, project_id, article_ids):
+        article_info = []
+        for article_id in tqdm.tqdm(article_ids, total=len(article_ids)):
+            article_info.append(client.get_article_info(project_id, article_id))
+        
+        full_texts = pd.DataFrame([{**ft} for a in article_info for ft in a['article'].get('full-texts', []) ])
+        full_texts.columns = [col.split('/')[-1] for col in full_texts.columns]
+        
+        auto_labels = pd.DataFrame([
+            {**{'article-id': a['article'].get('article-id'), 'label-id': label_id}, **details} for a in article_info
+            for label_id, details in a['article'].get('auto-labels', {}).items() ])
+        auto_labels['answer'] = auto_labels['answer'].apply(json.dumps)
+        
+        csl_citations = pd.DataFrame([
+            {**{k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in item['itemData'].items()}, 
+             'article-id': a['article'].get('article-id')} 
+            for a in article_info for item in a['article'].get('csl-citation', {}).get('citationItems', [])])
+        csl_citations['issued'] = csl_citations['issued'].apply(json.dumps)
+        csl_citations['author'] = csl_citations['author'].apply(json.dumps)
+        
+        self.write_df(full_texts,'full_texts')
+        self.write_df(auto_labels,'auto_labels')
+        self.write_df(csl_citations,'csl_citations')
+    
+    def sync_labels(self, client, project_id):
+        labels = client.get_labels(project_id)
+        labels_df = pd.DataFrame(labels)
+        labels_df['definition'] = labels_df['definition'].apply(json.dumps)
+        self.write_df(labels_df,'labels')
+        
+    # TODO - this could be made more efficient by checking sqlite state and updating the sysrev api
+    def sync(self, client, project_id):
+        
+        if not pathlib.Path('.sr/sr.sqlite').exists():
+            self.create_sqlite_db()
+            
+        project_info = client.get_project_info(project_id)
+        
+        n_articles = project_info['result']['project']['stats']['articles']
+        articles = [resp for resp in tqdm.tqdm(client.fetch_all_articles(project_id), total=n_articles)]
+        
+        article_labels = [a['labels'] for a in articles if a['labels'] is not None]
+        article_labels = [lbl for lbls in article_labels for lbl in lbls]
+        article_label_df = pd.DataFrame(article_labels)
+        article_label_df['answer'] = article_label_df['answer'].apply(json.dumps)
+        
+        article_data = [{k: v for k, v in a.items() if k != 'labels'} for a in articles]
+        article_data_df = pd.DataFrame(article_data)
+        article_data_df['notes'] = article_data_df['notes'].apply(json.dumps)
+        article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
+        
+        self.sync_article_info(client, project_id, article_data_df['article-id'])
+
+        # Writing data to tables
+        self.write_df(article_label_df,'article_label')
+        self.write_df(article_data_df,'article_data')

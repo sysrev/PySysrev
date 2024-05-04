@@ -24,3 +24,7 @@ __pycache__/
 scratch.py
 .env
 .sr
+
+# code2flow output
+out.gv
+out.png
