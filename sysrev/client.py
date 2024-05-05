@@ -249,6 +249,7 @@ class Synchronizer:
         article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
         
         self.sync_article_info(client, project_id, article_data_df['article-id'])
+        self.sync_labels(client, project_id)
 
         # Writing data to tables
         self.write_df(article_label_df,'article_label')
