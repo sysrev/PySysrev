@@ -32,14 +32,21 @@ class Client():
     def __init__(self, api_key, base_url="https://www.sysrev.com"):
         self.api_key = api_key
         self.base_url = base_url
+        self.synchronizer = Synchronizer()
         
     def sync(self, project_id):
-        Synchronizer().sync(self, project_id)
+        self.synchronizer.sync(self, project_id)
+    
+    def get(self, endpoint, headers, params):
+        response = requests.get(endpoint, headers=headers, params=params)
+        if response.status_code != 200:
+            raise Exception(f"Request to {endpoint} failed with status code {response.status_code}")
+        return response
     
     def get_project_info(self, project_id):
         endpoint = f"{self.base_url}/api-json/project-info"
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        response = requests.get(endpoint, headers=headers, params={"project-id": project_id})
+        response = self.get(endpoint, headers=headers, params={"project-id": project_id})
         return response.json()
     
     def get_labels(self, project_id):
@@ -93,7 +100,7 @@ class Client():
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         body = {"project-id": project_id,}
         response = requests.get(endpoint, headers=headers, json=body)
-        return response.json()['result']
+        return response.json().get('result', None)
                    
     def upload_jsonlines(self, file_path, project_id):
         url = f"{self.base_url}/api-json/import-files/{project_id}"
@@ -199,7 +206,7 @@ class Synchronizer:
     
     def sync_article_info(self, client:Client, project_id, article_ids):
         article_info = []
-        for article_id in tqdm.tqdm(article_ids, total=len(article_ids)):
+        for article_id in tqdm.tqdm(article_ids, total=len(article_ids), desc="Fetching article info"):
             article_info.append(client.get_article_info(project_id, article_id))
         
         full_texts = pd.DataFrame([{**ft} for a in article_info for ft in a['article'].get('full-texts', []) ])
@@ -228,7 +235,7 @@ class Synchronizer:
         self.write_df(labels_df,'labels')
         
     # TODO - this could be made more efficient by checking sqlite state and updating the sysrev api
-    def sync(self, client, project_id):
+    def sync(self, client : Client, project_id):
         
         if not pathlib.Path('.sr/sr.sqlite').exists():
             self.create_sqlite_db()
@@ -236,21 +243,22 @@ class Synchronizer:
         project_info = client.get_project_info(project_id)
         
         n_articles = project_info['result']['project']['stats']['articles']
-        articles = [resp for resp in tqdm.tqdm(client.fetch_all_articles(project_id), total=n_articles)]
+        articles = [resp for resp in tqdm.tqdm(client.fetch_all_articles(project_id), total=n_articles, desc="Fetching articles")]
         
         article_labels = [a['labels'] for a in articles if a['labels'] is not None]
         article_labels = [lbl for lbls in article_labels for lbl in lbls]
         article_label_df = pd.DataFrame(article_labels)
         article_label_df['answer'] = article_label_df['answer'].apply(json.dumps)
+        self.write_df(article_label_df,'article_label')
         
         article_data = [{k: v for k, v in a.items() if k != 'labels'} for a in articles]
         article_data_df = pd.DataFrame(article_data)
         article_data_df['notes'] = article_data_df['notes'].apply(json.dumps)
         article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
+        self.write_df(article_data_df,'article_data')
         
         self.sync_article_info(client, project_id, article_data_df['article-id'])
         self.sync_labels(client, project_id)
 
-        # Writing data to tables
-        self.write_df(article_label_df,'article_label')
-        self.write_df(article_data_df,'article_data')
+        
+        
