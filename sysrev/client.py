@@ -215,13 +215,18 @@ class Synchronizer:
         auto_labels = pd.DataFrame([
             {**{'article-id': a['article'].get('article-id'), 'label-id': label_id}, **details} for a in article_info
             for label_id, details in a['article'].get('auto-labels', {}).items() ])
-        auto_labels['answer'] = auto_labels['answer'].apply(json.dumps)
+        auto_labels['answer'] = auto_labels.get('answer',pd.Series([])).apply(json.dumps)
         
         csl_citations = pd.DataFrame([
-            {**{k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in item['itemData'].items()}, 
-             'article-id': a['article'].get('article-id')} 
-            for a in article_info for item in a['article'].get('csl-citation', {}).get('citationItems', [])])
-        csl_citations['issued'] = csl_citations['issued'].apply(json.dumps)
+            {
+                **{k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in item['itemData'].items()}, 
+                'article-id': a['article'].get('article-id')
+            } 
+            for a in article_info 
+            for item in (a['article'].get('csl-citation') or {}).get('citationItems', [])
+        ])
+        csl_citations = csl_citations.reindex(columns=['issued', 'author'], fill_value='')
+        csl_citations['issued'] = csl_citations.get('issued').apply(json.dumps)
         csl_citations['author'] = csl_citations['author'].apply(json.dumps)
         
         self.write_df(full_texts,'full_texts')
@@ -231,7 +236,8 @@ class Synchronizer:
     def sync_labels(self, client, project_id):
         labels = client.get_labels(project_id)
         labels_df = pd.DataFrame(labels)
-        labels_df['definition'] = labels_df['definition'].apply(json.dumps)
+        # convert any dict column to json string
+        labels_df = labels_df.apply(lambda col: col.map(lambda x: json.dumps(x) if isinstance(x, dict) else x))
         self.write_df(labels_df,'labels')
         
     # TODO - this could be made more efficient by checking sqlite state and updating the sysrev api
@@ -257,7 +263,8 @@ class Synchronizer:
         article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
         self.write_df(article_data_df,'article_data')
         
-        self.sync_article_info(client, project_id, article_data_df['article-id'])
+        article_ids = list(article_data_df.get('article_id',[]))
+        self.sync_article_info(client, project_id, article_ids)
         self.sync_labels(client, project_id)
 
         
