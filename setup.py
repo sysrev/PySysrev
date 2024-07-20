@@ -6,7 +6,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='sysrev',
-    version='1.3.11',
+    version='1.3.12',
     description='get sysrev project data and use the sysrev api',
     long_description=long_description,
     long_description_content_type='text/markdown',  # Specify the content type here

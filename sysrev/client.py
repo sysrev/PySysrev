@@ -204,7 +204,8 @@ class Synchronizer:
         finally:
             conn.close()
     
-    def sync_article_info(self, client:Client, project_id, article_ids):
+    def sync_article_info(self, client:Client, project_id, articles):        
+        article_ids = [a['article-id'] for a in articles]
         article_info = []
         for article_id in tqdm.tqdm(article_ids, total=len(article_ids), desc="Fetching article info"):
             article_info.append(client.get_article_info(project_id, article_id))
@@ -217,21 +218,13 @@ class Synchronizer:
             for label_id, details in a['article'].get('auto-labels', {}).items() ])
         auto_labels['answer'] = auto_labels.get('answer',pd.Series([])).apply(json.dumps)
         
-        csl_citations = pd.DataFrame([
-            {
-                **{k: json.dumps(v) if isinstance(v, (dict, list)) else v for k, v in item['itemData'].items()}, 
-                'article-id': a['article'].get('article-id')
-            } 
-            for a in article_info 
-            for item in (a['article'].get('csl-citation') or {}).get('citationItems', [])
-        ])
-        csl_citations = csl_citations.reindex(columns=['issued', 'author'], fill_value='')
-        csl_citations['issued'] = csl_citations.get('issued').apply(json.dumps)
-        csl_citations['author'] = csl_citations['author'].apply(json.dumps)
-        
+        # just dump all the article info into a json object with article_id
+        artjson = [{'article-id':a['article'].get('article-id'), 'json':a['article']} for a in article_info]
+        artdf = pd.DataFrame(artjson).assign(json=lambda df: df['json'].apply(json.dumps))
+
         self.write_df(full_texts,'full_texts')
         self.write_df(auto_labels,'auto_labels')
-        self.write_df(csl_citations,'csl_citations')
+        self.write_df(artdf,'article')
     
     def sync_labels(self, client, project_id):
         labels = client.get_labels(project_id)
@@ -257,14 +250,7 @@ class Synchronizer:
         article_label_df['answer'] = article_label_df['answer'].apply(json.dumps)
         self.write_df(article_label_df,'article_label')
         
-        article_data = [{k: v for k, v in a.items() if k != 'labels'} for a in articles]
-        article_data_df = pd.DataFrame(article_data)
-        article_data_df['notes'] = article_data_df['notes'].apply(json.dumps)
-        article_data_df['resolve'] = article_data_df['resolve'].apply(json.dumps)
-        self.write_df(article_data_df,'article_data')
-        
-        article_ids = list(article_data_df.get('article_id',[]))
-        self.sync_article_info(client, project_id, article_ids)
+        self.sync_article_info(client, project_id, articles)
         self.sync_labels(client, project_id)
 
         
