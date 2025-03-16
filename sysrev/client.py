@@ -85,15 +85,13 @@ class Client():
         response = requests.post(endpoint, headers=headers, json=body)
         return response.json()
     
-    def fetch_all_articles(self, project_id, limit=10, sort_by=None, sort_dir=None):
-        offset = 0
-        while True:
+    def fetch_all_articles(self, project_id, limit=10, offset=0, sort_by=None, sort_dir=None):
+        total_count = self.get_project_articles(project_id, offset=0, limit=1, sort_by=sort_by, sort_dir=sort_dir).get('result', {}).get('total-count', 0)
+        for offset in range(0, total_count, limit):
+            print(f"Fetching articles from offset {offset} to {offset + limit}")
             result = self.get_project_articles(project_id, offset=offset, limit=limit, sort_by=sort_by, sort_dir=sort_dir)
             articles = result.get('result', [])
-            if not articles:
-                break  # Stop iteration if no articles are left
-            yield from articles  # Yield each article in the current batch
-            offset += len(articles)
+            yield from articles  # Yield ea
     
     def get_article_info(self, project_id, article_id):
         endpoint = f"{self.base_url}/api-json/article-info/{article_id}"
